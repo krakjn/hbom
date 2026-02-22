@@ -21,15 +21,7 @@ zig has __native cross compile__ **out of the box!**
 zig build
 ```
 
-This produces musl-only binaries:
-
-| Binary | Target |
-|--------|--------|
-| `hbom` | x86_64 Linux musl (default) |
-| `hbom-i386-linux-musl` | i386 Linux musl |
-| `hbom-aarch64-linux-musl` | aarch64 (ARM64) Linux musl |
-| `hbom-arm-linux-musl` | 32-bit ARM Linux musl (musleabihf) |
-
+This produces musl-only binaries. That's right, fully static builds that do not rely on the host's libc
 All are installed under `zig-out/bin/`.
 
 ## Usage

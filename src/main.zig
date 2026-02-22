@@ -19,7 +19,7 @@ const detect_i2c = @import("detect/i2c.zig");
 const detect_tpm = @import("detect/tpm.zig");
 const output = @import("output.zig");
 
-const default_output_path = "hbom.json";
+const default_output_basename = "hbom";
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -34,7 +34,7 @@ pub fn main() !void {
         std.log.err("failed to parse arguments", .{});
         return err;
     };
-    defer if (stdout_to == .file) allocator.free(stdout_to.file);
+    defer if (stdout_to == .file) allocator.free(stdout_to.file.path);
 
     var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
@@ -77,40 +77,97 @@ pub fn main() !void {
     const chipset_desc = output.deriveChipset(&bom);
     if (chipset_desc) |s| bom.chipset = s;
 
-    switch (stdout_to) {
-        .default_file => try output.writeToFile(arena_alloc, &bom, default_output_path),
-        .file => |path| try output.writeToFile(arena_alloc, &bom, path),
-        .stdout => try output.writeToStdout(arena_alloc, &bom),
-    }
+    const format = switch (stdout_to) {
+        .default_file => |o| o.format,
+        .file => |o| o.format,
+        .stdout => |o| o.format,
+    };
+    const pretty = switch (stdout_to) {
+        .default_file => |o| o.pretty,
+        .file => |o| o.pretty,
+        .stdout => |o| o.pretty,
+    };
+    var default_path: ?[]const u8 = null;
+    defer if (default_path) |p| allocator.free(p);
+    const dest: output.Destination = switch (stdout_to) {
+        .default_file => blk: {
+            default_path = try defaultPathForFormat(allocator, format);
+            break :blk .{ .path = default_path.? };
+        },
+        .file => |o| .{ .path = o.path },
+        .stdout => .stdout,
+    };
+    try output.write(arena_alloc, &bom, dest, format, .{ .pretty = pretty });
 }
 
 const OutputDest = union(enum) {
-    default_file,
-    file: []const u8,
-    stdout,
+    default_file: struct { format: output.Format, pretty: bool },
+    file: struct { path: []const u8, format: output.Format, pretty: bool },
+    stdout: struct { format: output.Format, pretty: bool },
 };
+
+fn defaultPathForFormat(allocator: std.mem.Allocator, format: output.Format) ![]const u8 {
+    const ext = switch (format) {
+        .json => "json",
+        .toml => "toml",
+        .ini => "ini",
+        .csv => "csv",
+    };
+    return std.fmt.allocPrint(allocator, "{s}.{s}", .{ default_output_basename, ext });
+}
 
 fn parseArgs(allocator: std.mem.Allocator) !OutputDest {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
     _ = args.next(); // skip exe name
 
+    var pretty = false;
+    var to_stdout = false;
+    var output_path: ?[]const u8 = null;
+    var format: output.Format = .json;
+
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
             return error.PrintHelp;
         }
         if (std.mem.eql(u8, arg, "--stdout")) {
-            return .stdout;
-        }
-        if (std.mem.eql(u8, arg, "--output") or std.mem.eql(u8, arg, "-o")) {
+            to_stdout = true;
+        } else if (std.mem.eql(u8, arg, "--pretty") or std.mem.eql(u8, arg, "-p")) {
+            pretty = true;
+        } else if (std.mem.startsWith(u8, arg, "--format=")) {
+            format = parseFormat(arg["--format=".len..]) orelse {
+                std.log.err("unknown format: {s}", .{arg["--format=".len..]});
+                return error.InvalidArgs;
+            };
+        } else if (std.mem.eql(u8, arg, "-f")) {
+            const val = args.next() orelse {
+                std.log.err("-f requires format (json, toml, ini, csv)", .{});
+                return error.InvalidArgs;
+            };
+            format = parseFormat(val) orelse {
+                std.log.err("unknown format: {s}", .{val});
+                return error.InvalidArgs;
+            };
+        } else if (std.mem.eql(u8, arg, "--output") or std.mem.eql(u8, arg, "-o")) {
             const path = args.next() orelse {
                 std.log.err("--output / -o requires a path", .{});
                 return error.InvalidArgs;
             };
-            return .{ .file = try allocator.dupe(u8, path) };
+            output_path = try allocator.dupe(u8, path);
         }
     }
-    return .default_file;
+
+    if (output_path) |path| return .{ .file = .{ .path = path, .format = format, .pretty = pretty } };
+    if (to_stdout) return .{ .stdout = .{ .format = format, .pretty = pretty } };
+    return .{ .default_file = .{ .format = format, .pretty = pretty } };
+}
+
+fn parseFormat(s: []const u8) ?output.Format {
+    if (std.mem.eql(u8, s, "json")) return .json;
+    if (std.mem.eql(u8, s, "toml")) return .toml;
+    if (std.mem.eql(u8, s, "ini")) return .ini;
+    if (std.mem.eql(u8, s, "csv")) return .csv;
+    return null;
 }
 
 fn printHelp() void {
@@ -122,8 +179,10 @@ fn printHelp() void {
         \\Usage: hbom [options]
         \\
         \\  (no args)    Write condensed JSON to hbom.json in the current directory.
-        \\  -o, --output FILE   Write JSON to FILE.
-        \\  --stdout      Print JSON to stdout.
+        \\  -o, --output FILE   Write output to FILE.
+        \\  --stdout      Print output to stdout.
+        \\  -f, --format FORMAT   Output format: json (default), toml, ini, csv.
+        \\  -p, --pretty   Pretty-print JSON (no effect for other formats).
         \\  -h, --help    Show this help.
         \\
     , .{}) catch {};

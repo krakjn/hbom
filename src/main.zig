@@ -5,6 +5,18 @@ const detect_pci = @import("detect/pci.zig");
 const detect_usb = @import("detect/usb.zig");
 const detect_block = @import("detect/block.zig");
 const detect_input = @import("detect/input.zig");
+const detect_net = @import("detect/net.zig");
+const detect_cpu = @import("detect/cpu.zig");
+const detect_memory = @import("detect/memory.zig");
+const detect_sound = @import("detect/sound.zig");
+const detect_gpu = @import("detect/gpu.zig");
+const detect_thermal = @import("detect/thermal.zig");
+const detect_power = @import("detect/power.zig");
+const detect_platform = @import("detect/platform.zig");
+const detect_acpi = @import("detect/acpi.zig");
+const detect_virtio = @import("detect/virtio.zig");
+const detect_i2c = @import("detect/i2c.zig");
+const detect_tpm = @import("detect/tpm.zig");
 const output = @import("output.zig");
 
 const default_output_path = "hbom.json";
@@ -38,9 +50,29 @@ pub fn main() !void {
         .usb = try detect_usb.detect(arena_alloc),
         .block = try detect_block.detect(arena_alloc),
         .input = try detect_input.detect(arena_alloc),
+        .net = try detect_net.detect(arena_alloc),
+        .cpu = try detect_cpu.detect(arena_alloc),
+        .memory = try detect_memory.detect(arena_alloc),
+        .sound = try detect_sound.detect(arena_alloc),
+        .gpu = try detect_gpu.detect(arena_alloc),
+        .thermal = try detect_thermal.detect(arena_alloc),
+        .power = try detect_power.detect(arena_alloc),
+        .platform = try detect_platform.detect(arena_alloc),
+        .acpi = try detect_acpi.detect(arena_alloc),
+        .virtio = try detect_virtio.detect(arena_alloc),
+        .i2c = try detect_i2c.detect(arena_alloc),
+        .tpm = detect_tpm.detect(arena_alloc) catch null,
     };
 
     bom.mergeDevicetreeIntoHostBoard();
+
+    var chipsets_list = std.ArrayList(output.PciDevice).empty;
+    for (bom.pci) |d| {
+        if (output.isChipsetClass(d.class)) {
+            chipsets_list.append(arena_alloc, d) catch break;
+        }
+    }
+    bom.chipsets = try chipsets_list.toOwnedSlice(arena_alloc);
 
     const chipset_desc = output.deriveChipset(&bom);
     if (chipset_desc) |s| bom.chipset = s;

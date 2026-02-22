@@ -1,16 +1,36 @@
-# hbom
+```
+ █████      █████                             
+▒▒███      ▒▒███                              
+ ▒███████   ▒███████   ██████  █████████████  
+ ▒███▒▒███  ▒███▒▒███ ███▒▒███▒▒███▒▒███▒▒███ 
+ ▒███ ▒███  ▒███ ▒███▒███ ▒███ ▒███ ▒███ ▒███ 
+ ▒███ ▒███  ▒███ ▒███▒███ ▒███ ▒███ ▒███ ▒███ 
+ ████ █████ ████████ ▒▒██████  █████▒███ █████
+▒▒▒▒ ▒▒▒▒▒ ▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒  ▒▒▒▒▒ ▒▒▒ ▒▒▒▒▒ 
+```
+                                              
+# Hardware Bill of Materials
 
-Hardware Bill of Materials — a Linux tool that outputs condensed JSON describing host, board, BIOS, chassis, chipset, PCI and USB devices, block devices, and input devices. Data is discovered at runtime from sysfs and devicetree (no hardcoded device lists). Targets desktops, servers, and embedded devices (e.g. NVIDIA Orin).
+A Linux tool that outputs condensed JSON describing host, board, BIOS, chassis, chipset, PCI and USB devices, block devices, and input devices. Data is discovered at runtime from sysfs and devicetree (no hardcoded device lists). Targets desktops, servers, and embedded devices (e.g. NVIDIA Orin).
 
 **Zig 0.15.2**
 
 ## Build
-
+zig has __native cross compile__ **out of the box!**
 ```bash
 zig build
 ```
 
-Binary: `zig-out/bin/hbom`
+This produces musl-only binaries:
+
+| Binary | Target |
+|--------|--------|
+| `hbom` | x86_64 Linux musl (default) |
+| `hbom-i386-linux-musl` | i386 Linux musl |
+| `hbom-aarch64-linux-musl` | aarch64 (ARM64) Linux musl |
+| `hbom-arm-linux-musl` | 32-bit ARM Linux musl (musleabihf) |
+
+All are installed under `zig-out/bin/`.
 
 ## Usage
 

@@ -1,0 +1,42 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: "0.15.2"
+
+      - name: Build (release)
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          cp zig-out/bin/hbom-* release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-${{ github.run_number }}
+          name: Release #${{ github.run_number }}
+          body: |
+            Built from ${{ github.sha }}
+            Commit: ${{ github.event.head_commit.message }}
+          files: release/*
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

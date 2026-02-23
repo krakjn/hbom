@@ -19,6 +19,8 @@ const detect_i2c = @import("detect/i2c.zig");
 const detect_tpm = @import("detect/tpm.zig");
 const output = @import("output.zig");
 
+const version_info = @import("version");
+
 const default_output_basename = "hbom";
 
 pub fn main() !void {
@@ -29,6 +31,10 @@ pub fn main() !void {
     const stdout_to = parseArgs(allocator) catch |err| {
         if (err == error.PrintHelp) {
             printHelp();
+            return;
+        }
+        if (err == error.PrintVersion) {
+            std.debug.print("hbom {s}\n", .{version_info.version});
             return;
         }
         std.log.err("failed to parse arguments", .{});
@@ -129,6 +135,9 @@ fn parseArgs(allocator: std.mem.Allocator) !OutputDest {
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
             return error.PrintHelp;
+        }
+        if (std.mem.eql(u8, arg, "--version")) {
+            return error.PrintVersion;
         }
         if (std.mem.eql(u8, arg, "--stdout")) {
             to_stdout = true;

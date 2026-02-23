@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const version = std.SemanticVersion.parse("0.1.0") catch @panic("invalid version");
+
 const linux_musl_targets = [_]struct {
     std.Target.Query,
     []const u8, // name
@@ -15,6 +17,9 @@ pub fn build(b: *std.Build) void {
 
     var primary_exe: ?*std.Build.Step.Compile = null;
 
+    const version_opts = b.addOptions();
+    version_opts.addOption([]const u8, "version", "0.1.0");
+
     for (linux_musl_targets) |spec| {
         const resolved = b.resolveTargetQuery(spec.@"0");
         const mod = b.createModule(.{
@@ -23,9 +28,11 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .link_libc = true,
         });
+        mod.addOptions("version", version_opts);
         const exe = b.addExecutable(.{
             .name = spec.@"1",
             .root_module = mod,
+            .version = version,
         });
         b.installArtifact(exe);
         if (primary_exe == null) primary_exe = exe;

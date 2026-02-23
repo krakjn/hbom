@@ -15,6 +15,12 @@ A Linux tool that outputs a hardware bill of materials in JSON (default), TOML, 
 
 **Zig 0.15.2**
 
+## Install
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/krakjn/hbom/main/install.sh | bash -s -- --to /usr/local/bin
+```
+
 ## Build
 zig has __native cross compile__ **out of the box!**
 ```bash
